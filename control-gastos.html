@@ -1,0 +1,529 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Parte de Despliegue — Control de Gastos</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Oswald:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg: #14161a;
+    --panel: #1c1f26;
+    --panel-2: #232733;
+    --line: #33384a;
+    --ink: #e9e6dd;
+    --ink-dim: #9aa0ae;
+    --gold: #c9a54d;
+    --gold-dim: #8a723a;
+    --ok: #4c8c6b;
+    --warn: #d98c3d;
+    --danger: #c0392b;
+    --radius: 2px;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0;
+    background:
+      radial-gradient(1200px 600px at 50% -200px, #1f2330, var(--bg));
+    color:var(--ink);
+    font-family:'IBM Plex Sans', sans-serif;
+    min-height:100vh;
+    padding-bottom:60px;
+  }
+  .wrap{max-width:640px;margin:0 auto;padding:0 16px;}
+
+  /* Header — briefing strip */
+  header{
+    border-bottom:1px solid var(--line);
+    padding:22px 0 16px;
+    margin-bottom:20px;
+    position:relative;
+  }
+  header::before{
+    content:"";
+    position:absolute; left:0; right:0; top:0;
+    height:3px;
+    background: repeating-linear-gradient(90deg, var(--gold) 0 18px, transparent 18px 26px);
+    opacity:.55;
+  }
+  .eyebrow{
+    font-family:'IBM Plex Mono', monospace;
+    font-size:11px;
+    letter-spacing:.18em;
+    color:var(--gold);
+    text-transform:uppercase;
+    display:flex;
+    justify-content:space-between;
+  }
+  h1{
+    font-family:'Oswald', sans-serif;
+    font-weight:600;
+    font-size:26px;
+    letter-spacing:.02em;
+    text-transform:uppercase;
+    margin:8px 0 0;
+  }
+  .subtitle{color:var(--ink-dim); font-size:13px; margin-top:4px;}
+
+  /* Alert banner */
+  .alert{
+    display:none;
+    align-items:center;
+    gap:10px;
+    padding:12px 14px;
+    border:1px solid var(--danger);
+    background:rgba(192,57,43,.12);
+    border-radius:var(--radius);
+    color:#f0b8b0;
+    font-size:13px;
+    margin-bottom:18px;
+  }
+  .alert.show{display:flex;}
+  .alert svg{flex-shrink:0;}
+  .alert.warn-level{border-color:var(--warn); background:rgba(217,140,61,.12); color:#f3cf9e;}
+
+  /* Cards */
+  .card{
+    background:var(--panel);
+    border:1px solid var(--line);
+    border-radius:var(--radius);
+    padding:18px;
+    margin-bottom:16px;
+  }
+  .card-title{
+    font-family:'IBM Plex Mono', monospace;
+    font-size:11px;
+    letter-spacing:.12em;
+    text-transform:uppercase;
+    color:var(--ink-dim);
+    margin-bottom:12px;
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+  }
+
+  /* Salary */
+  .salary-row{display:flex; align-items:baseline; gap:8px;}
+  .currency{font-family:'IBM Plex Mono',monospace; color:var(--gold); font-size:20px;}
+  input[type=number], input[type=text]{
+    background:var(--panel-2);
+    border:1px solid var(--line);
+    color:var(--ink);
+    font-family:'IBM Plex Mono', monospace;
+    font-size:20px;
+    padding:8px 10px;
+    border-radius:var(--radius);
+    width:100%;
+  }
+  input[type=number]:focus, input[type=text]:focus{
+    outline:none; border-color:var(--gold);
+  }
+  .small-input{font-size:14px; padding:8px 10px;}
+
+  /* Deployment gauge (signature element) */
+  .gauge-wrap{margin-top:6px;}
+  .gauge{
+    position:relative;
+    height:26px;
+    background:var(--panel-2);
+    border:1px solid var(--line);
+    border-radius:var(--radius);
+    overflow:hidden;
+  }
+  .gauge-fill{
+    height:100%;
+    background:linear-gradient(90deg, var(--gold-dim), var(--gold));
+    width:0%;
+    transition:width .5s ease;
+  }
+  .gauge-fill.over{background:linear-gradient(90deg, #8a2c22, var(--danger));}
+  .gauge-ticks{
+    position:absolute; inset:0;
+    background-image: repeating-linear-gradient(90deg, transparent 0 9.9%, rgba(0,0,0,.35) 9.9% 10%);
+    pointer-events:none;
+  }
+  .gauge-labels{
+    display:flex; justify-content:space-between;
+    font-family:'IBM Plex Mono', monospace;
+    font-size:11px; color:var(--ink-dim);
+    margin-top:6px;
+  }
+
+  .balance-figure{
+    font-family:'IBM Plex Mono', monospace;
+    font-size:36px;
+    font-weight:500;
+    letter-spacing:-.01em;
+  }
+  .balance-figure.positive{color:var(--ok);}
+  .balance-figure.negative{color:var(--danger);}
+  .balance-sub{color:var(--ink-dim); font-size:12px; margin-top:2px;}
+
+  .stat-grid{display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-top:14px;}
+  .stat{
+    border-left:2px solid var(--line);
+    padding-left:10px;
+  }
+  .stat.gold{border-color:var(--gold);}
+  .stat .label{font-family:'IBM Plex Mono',monospace; font-size:10px; color:var(--ink-dim); text-transform:uppercase; letter-spacing:.08em;}
+  .stat .val{font-family:'IBM Plex Mono',monospace; font-size:17px; margin-top:2px;}
+
+  /* Debt roster */
+  .roster{list-style:none; margin:0; padding:0;}
+  .roster li{
+    display:flex; align-items:center; gap:10px;
+    padding:10px 0;
+    border-bottom:1px solid var(--line);
+  }
+  .roster li:last-child{border-bottom:none;}
+  .roster li.paid{opacity:.4;}
+  .roster .name{flex:1; font-size:14px;}
+  .roster .name .tag{display:block; font-size:11px; color:var(--ink-dim); font-family:'IBM Plex Mono',monospace;}
+  .roster .amt{font-family:'IBM Plex Mono',monospace; font-size:14px; color:var(--gold); min-width:90px; text-align:right;}
+  .roster .amt.paid-amt{color:var(--ink-dim); text-decoration:line-through;}
+  .icon-btn{
+    background:none; border:1px solid var(--line); color:var(--ink-dim);
+    width:28px; height:28px; border-radius:var(--radius);
+    display:flex; align-items:center; justify-content:center;
+    cursor:pointer; flex-shrink:0;
+    transition:border-color .15s, color .15s;
+  }
+  .icon-btn:hover{border-color:var(--gold); color:var(--gold);}
+  .icon-btn.danger:hover{border-color:var(--danger); color:var(--danger);}
+
+  .empty-state{
+    text-align:center; color:var(--ink-dim); font-size:13px; padding:24px 0;
+  }
+
+  /* Add debt form */
+  .add-form{display:flex; gap:8px; margin-top:14px;}
+  .add-form input[name=name]{flex:2;}
+  .add-form input[name=amount]{flex:1;}
+  .btn{
+    font-family:'IBM Plex Mono', monospace;
+    font-size:12px;
+    letter-spacing:.06em;
+    text-transform:uppercase;
+    background:var(--gold);
+    color:#1a1305;
+    border:none;
+    padding:0 16px;
+    border-radius:var(--radius);
+    cursor:pointer;
+    font-weight:600;
+  }
+  .btn:hover{background:#dab663;}
+  .btn.ghost{
+    background:none; border:1px solid var(--line); color:var(--ink-dim); padding:8px 14px;
+  }
+  .btn.ghost:hover{border-color:var(--gold); color:var(--gold);}
+
+  /* Settings */
+  .settings-toggle{
+    display:flex; align-items:center; gap:8px;
+    font-family:'IBM Plex Mono',monospace; font-size:12px; color:var(--ink-dim);
+    cursor:pointer; user-select:none;
+  }
+  .settings-body{display:none; margin-top:14px; padding-top:14px; border-top:1px dashed var(--line);}
+  .settings-body.open{display:block;}
+  .mode-row{display:flex; gap:8px; margin-bottom:10px;}
+  .mode-btn{
+    flex:1; text-align:center; padding:8px; font-size:12px; font-family:'IBM Plex Mono',monospace;
+    border:1px solid var(--line); border-radius:var(--radius); cursor:pointer; color:var(--ink-dim);
+  }
+  .mode-btn.active{border-color:var(--gold); color:var(--gold); background:rgba(201,165,77,.08);}
+  label.field-label{font-size:11px; color:var(--ink-dim); font-family:'IBM Plex Mono',monospace; display:block; margin-bottom:6px; text-transform:uppercase; letter-spacing:.06em;}
+
+  .footer-note{
+    text-align:center; color:var(--ink-dim); font-size:11px; margin-top:24px; font-family:'IBM Plex Mono',monospace;
+  }
+  .loading{text-align:center; color:var(--ink-dim); padding:40px 0; font-family:'IBM Plex Mono',monospace; font-size:13px;}
+
+  @media (prefers-reduced-motion: reduce){
+    .gauge-fill{transition:none;}
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header>
+    <div class="eyebrow"><span>PARTE DE DESPLIEGUE</span><span id="today-date">—</span></div>
+    <h1>Control de Nómina</h1>
+    <div class="subtitle">Sueldo mensual, deudas activas y balance disponible.</div>
+  </header>
+
+  <div id="alert-banner" class="alert">
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+    <span id="alert-text">—</span>
+  </div>
+
+  <div id="app-root" class="loading">Cargando parte de despliegue…</div>
+
+</div>
+
+<script>
+(function(){
+  const root = document.getElementById('app-root');
+  const alertBanner = document.getElementById('alert-banner');
+  const alertText = document.getElementById('alert-text');
+  const todayDate = document.getElementById('today-date');
+
+  const STORAGE_KEY = 'control-gastos:estado';
+
+  const defaultState = {
+    salario: 0,
+    deudas: [], // {id, nombre, monto, pagada}
+    alerta: { modo: 'porcentaje', porcentaje: 70, montoFijo: 0 }
+  };
+
+  let state = null;
+
+  const fmt = (n) => {
+    const num = Number(n) || 0;
+    return num.toLocaleString('es-CO', { maximumFractionDigits: 0 });
+  };
+
+  todayDate.textContent = new Date().toLocaleDateString('es-CO', { day:'2-digit', month:'short', year:'numeric' }).toUpperCase();
+
+  async function loadState(){
+    try{
+      const res = await window.storage.get(STORAGE_KEY, false);
+      if(res && res.value){
+        const parsed = JSON.parse(res.value);
+        state = Object.assign({}, defaultState, parsed);
+        if(!state.alerta) state.alerta = defaultState.alerta;
+      } else {
+        state = JSON.parse(JSON.stringify(defaultState));
+      }
+    } catch(e){
+      state = JSON.parse(JSON.stringify(defaultState));
+    }
+    render();
+  }
+
+  let saveTimeout = null;
+  function saveState(){
+    clearTimeout(saveTimeout);
+    saveTimeout = setTimeout(async () => {
+      try{
+        await window.storage.set(STORAGE_KEY, JSON.stringify(state), false);
+      } catch(e){
+        console.error('No se pudo guardar el estado', e);
+      }
+    }, 300);
+  }
+
+  function calcTotals(){
+    const pendientes = state.deudas.filter(d => !d.pagada);
+    const totalDeuda = pendientes.reduce((sum, d) => sum + (Number(d.monto)||0), 0);
+    const balance = (Number(state.salario)||0) - totalDeuda;
+    const pct = state.salario > 0 ? (totalDeuda / state.salario) * 100 : 0;
+    return { totalDeuda, balance, pct };
+  }
+
+  function checkAlert(){
+    const { totalDeuda, pct } = calcTotals();
+    let triggered = false;
+    let level = 'warn';
+    let msg = '';
+
+    const modo = state.alerta.modo;
+
+    if(modo === 'porcentaje' || modo === 'ambas'){
+      const limite = Number(state.alerta.porcentaje)||0;
+      if(pct >= limite){
+        triggered = true;
+        level = pct >= 100 ? 'danger' : 'warn';
+        msg = `Tus deudas equivalen al ${pct.toFixed(0)}% del sueldo (límite: ${limite}%).`;
+      }
+    }
+    if(modo === 'montoFijo' || modo === 'ambas'){
+      const limiteFijo = Number(state.alerta.montoFijo)||0;
+      if(limiteFijo > 0 && totalDeuda >= limiteFijo){
+        triggered = true;
+        if(totalDeuda >= limiteFijo * 1.2) level = 'danger';
+        msg = msg ? msg + ` También superaste el monto fijo de $${fmt(limiteFijo)}.` : `Tus deudas superaron el monto fijo de $${fmt(limiteFijo)}.`;
+      }
+    }
+
+    if(triggered){
+      alertBanner.classList.add('show');
+      alertBanner.classList.toggle('warn-level', level === 'warn');
+      alertText.textContent = msg;
+    } else {
+      alertBanner.classList.remove('show');
+    }
+  }
+
+  function render(){
+    const { totalDeuda, balance, pct } = calcTotals();
+    const pctClamped = Math.min(pct, 100);
+    const isOver = pct >= (state.alerta.modo !== 'montoFijo' ? Number(state.alerta.porcentaje)||100 : 100) || pct >= 100;
+
+    root.innerHTML = `
+      <div class="card">
+        <div class="card-title">Sueldo mensual</div>
+        <div class="salary-row">
+          <span class="currency">$</span>
+          <input type="number" id="salario-input" min="0" step="1000" value="${state.salario || ''}" placeholder="0" />
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-title">Barra de compromiso</div>
+        <div class="gauge-wrap">
+          <div class="gauge">
+            <div class="gauge-fill ${pctClamped >= (state.alerta.porcentaje||70) ? 'over' : ''}" style="width:${pctClamped}%"></div>
+            <div class="gauge-ticks"></div>
+          </div>
+          <div class="gauge-labels">
+            <span>0%</span>
+            <span>${pct.toFixed(0)}% comprometido</span>
+            <span>100%</span>
+          </div>
+        </div>
+
+        <div class="stat-grid">
+          <div class="stat">
+            <div class="label">Deuda activa</div>
+            <div class="val">$${fmt(totalDeuda)}</div>
+          </div>
+          <div class="stat gold">
+            <div class="label">Balance libre</div>
+            <div class="val">$${fmt(balance)}</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-title">
+          <span>Deudas / compromisos</span>
+        </div>
+        <ul class="roster" id="roster-list">
+          ${state.deudas.length === 0 ? '<div class="empty-state">Sin deudas registradas. Agrega la primera abajo.</div>' :
+            state.deudas.map(d => `
+              <li class="${d.pagada ? 'paid' : ''}" data-id="${d.id}">
+                <button class="icon-btn toggle-btn" data-id="${d.id}" title="${d.pagada ? 'Marcar como pendiente' : 'Marcar como pagada'}">
+                  ${d.pagada
+                    ? '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>'
+                    : '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/></svg>'}
+                </button>
+                <div class="name">${escapeHtml(d.nombre)}<span class="tag">${d.pagada ? 'Pagada' : 'Pendiente'}</span></div>
+                <div class="amt ${d.pagada ? 'paid-amt' : ''}">$${fmt(d.monto)}</div>
+                <button class="icon-btn danger delete-btn" data-id="${d.id}" title="Eliminar">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                </button>
+              </li>
+            `).join('')
+          }
+        </ul>
+
+        <div class="add-form">
+          <input type="text" name="name" id="new-nombre" placeholder="Nombre de la deuda (ej. tarjeta, arriendo)" />
+          <input type="number" name="amount" id="new-monto" placeholder="Monto" min="0" step="1000" />
+          <button class="btn" id="add-debt-btn">Agregar</button>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="settings-toggle" id="settings-toggle">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+          <span>Configurar alerta de sobreendeudamiento</span>
+        </div>
+        <div class="settings-body" id="settings-body">
+          <div class="mode-row">
+            <div class="mode-btn ${state.alerta.modo === 'porcentaje' ? 'active' : ''}" data-mode="porcentaje">% del sueldo</div>
+            <div class="mode-btn ${state.alerta.modo === 'montoFijo' ? 'active' : ''}" data-mode="montoFijo">Monto fijo</div>
+            <div class="mode-btn ${state.alerta.modo === 'ambas' ? 'active' : ''}" data-mode="ambas">Ambas</div>
+          </div>
+          <div style="display:flex; gap:12px; flex-wrap:wrap;">
+            <div style="flex:1; min-width:140px;">
+              <label class="field-label">Límite % del sueldo</label>
+              <input type="number" class="small-input" id="pct-input" min="0" max="100" value="${state.alerta.porcentaje}" />
+            </div>
+            <div style="flex:1; min-width:140px;">
+              <label class="field-label">Límite monto fijo ($)</label>
+              <input type="number" class="small-input" id="fixed-input" min="0" step="1000" value="${state.alerta.montoFijo || ''}" placeholder="0" />
+            </div>
+          </div>
+        </div>
+      </div>
+    `;
+
+    document.getElementById('salario-input').addEventListener('change', (e) => {
+      state.salario = Number(e.target.value) || 0;
+      saveState(); render(); checkAlert();
+    });
+
+    document.getElementById('add-debt-btn').addEventListener('click', addDebt);
+    document.getElementById('new-monto').addEventListener('keydown', (e) => { if(e.key === 'Enter') addDebt(); });
+    document.getElementById('new-nombre').addEventListener('keydown', (e) => { if(e.key === 'Enter') addDebt(); });
+
+    document.querySelectorAll('.toggle-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const id = btn.dataset.id;
+        const d = state.deudas.find(x => x.id === id);
+        if(d){ d.pagada = !d.pagada; saveState(); render(); checkAlert(); }
+      });
+    });
+    document.querySelectorAll('.delete-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const id = btn.dataset.id;
+        state.deudas = state.deudas.filter(x => x.id !== id);
+        saveState(); render(); checkAlert();
+      });
+    });
+
+    document.getElementById('settings-toggle').addEventListener('click', () => {
+      document.getElementById('settings-body').classList.toggle('open');
+    });
+    document.querySelectorAll('.mode-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        state.alerta.modo = btn.dataset.mode;
+        saveState(); render(); checkAlert();
+        document.getElementById('settings-body').classList.add('open');
+      });
+    });
+    document.getElementById('pct-input').addEventListener('change', (e) => {
+      state.alerta.porcentaje = Number(e.target.value) || 0;
+      saveState(); render(); checkAlert();
+      document.getElementById('settings-body').classList.add('open');
+    });
+    document.getElementById('fixed-input').addEventListener('change', (e) => {
+      state.alerta.montoFijo = Number(e.target.value) || 0;
+      saveState(); render(); checkAlert();
+      document.getElementById('settings-body').classList.add('open');
+    });
+
+    checkAlert();
+  }
+
+  function addDebt(){
+    const nombreInput = document.getElementById('new-nombre');
+    const montoInput = document.getElementById('new-monto');
+    const nombre = nombreInput.value.trim();
+    const monto = Number(montoInput.value) || 0;
+    if(!nombre || monto <= 0) return;
+    state.deudas.push({ id: 'd' + Date.now() + Math.random().toString(36).slice(2,6), nombre, monto, pagada:false });
+    saveState();
+    render();
+    checkAlert();
+  }
+
+  function escapeHtml(str){
+    const div = document.createElement('div');
+    div.textContent = str;
+    return div.innerHTML;
+  }
+
+  loadState();
+})();
+</script>
+
+<div class="wrap">
+  <div class="footer-note">CONTROL DE NÓMINA — DATOS PERSONALES, GUARDADOS AUTOMÁTICAMENTE</div>
+</div>
+</body>
+</html>
